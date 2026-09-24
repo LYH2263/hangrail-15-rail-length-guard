@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -13,6 +13,7 @@ from app.schemas.schemas import (
     OrderOut,
     PickupRequest,
     RailOut,
+    RailUpdateRequest,
     StoreOut,
 )
 from app.services.rail_engine import Segment, first_fit
@@ -33,6 +34,27 @@ def stores(db: Session = Depends(get_db)):
 @api_router.get("/rails", response_model=list[RailOut])
 def rails(db: Session = Depends(get_db)):
     return db.scalars(select(HangRail).order_by(HangRail.id)).all()
+
+
+@api_router.patch("/rails/{rail_id}", response_model=RailOut)
+def update_rail(rail_id: int, body: RailUpdateRequest, db: Session = Depends(get_db)):
+    rail = db.get(HangRail, rail_id)
+    if not rail:
+        raise HTTPException(404, "挂杆不存在")
+    max_end = db.scalar(
+        select(func.max(RailPlacement.end_cm)).where(
+            RailPlacement.rail_id == rail_id, RailPlacement.active == 1
+        )
+    )
+    if max_end is not None and body.length_cm + 1e-9 < max_end:
+        raise HTTPException(
+            400,
+            f"新杆长 {body.length_cm:g}cm 小于当前占位最远端 {max_end:g}cm，拒绝缩短",
+        )
+    rail.length_cm = body.length_cm
+    db.commit()
+    db.refresh(rail)
+    return rail
 
 
 @api_router.get("/orders", response_model=list[OrderOut])

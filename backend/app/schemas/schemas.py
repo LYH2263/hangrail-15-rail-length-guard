@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class StoreOut(BaseModel):
@@ -26,6 +26,10 @@ class OrderOut(BaseModel):
     due_at: datetime
     hung_at: datetime | None
     model_config = {"from_attributes": True}
+
+
+class RailUpdateRequest(BaseModel):
+    length_cm: float = Field(gt=0)
 
 
 class HangRequest(BaseModel):
