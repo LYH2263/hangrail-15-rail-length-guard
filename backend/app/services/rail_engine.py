@@ -45,3 +45,15 @@ def first_fit(rail_length: float, occupied: list[Segment], garment_cm: float) ->
 
 def overlaps(a: Segment, b: Segment) -> bool:
     return not (a.end_cm <= b.start_cm or b.end_cm <= a.start_cm)
+
+
+def max_occupied_end(occupied: list[Segment]) -> float:
+    """Farthest active placement end; 0 when the rail is empty."""
+    return max((s.end_cm for s in occupied), default=0.0)
+
+
+def can_shrink(rail_length: float, occupied: list[Segment], new_length: float) -> bool:
+    """A rail may be shortened as long as no active placement crosses the new end."""
+    if new_length >= rail_length:
+        return True
+    return new_length + 1e-9 >= max_occupied_end(occupied)

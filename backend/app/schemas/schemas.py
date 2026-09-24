@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class StoreOut(BaseModel):
@@ -31,6 +31,10 @@ class OrderOut(BaseModel):
 class HangRequest(BaseModel):
     order_id: int
     rail_id: int | None = None
+
+
+class RailUpdateRequest(BaseModel):
+    length_cm: float = Field(gt=0)
 
 
 class PickupRequest(BaseModel):

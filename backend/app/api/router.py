@@ -13,9 +13,10 @@ from app.schemas.schemas import (
     OrderOut,
     PickupRequest,
     RailOut,
+    RailUpdateRequest,
     StoreOut,
 )
-from app.services.rail_engine import Segment, first_fit
+from app.services.rail_engine import Segment, can_shrink, first_fit, max_occupied_end
 
 api_router = APIRouter()
 
@@ -33,6 +34,27 @@ def stores(db: Session = Depends(get_db)):
 @api_router.get("/rails", response_model=list[RailOut])
 def rails(db: Session = Depends(get_db)):
     return db.scalars(select(HangRail).order_by(HangRail.id)).all()
+
+
+@api_router.patch("/rails/{rail_id}", response_model=RailOut)
+def update_rail(rail_id: int, body: RailUpdateRequest, db: Session = Depends(get_db)):
+    rail = db.get(HangRail, rail_id)
+    if not rail:
+        raise HTTPException(404, "挂杆不存在")
+    active = db.scalars(
+        select(RailPlacement).where(RailPlacement.rail_id == rail_id, RailPlacement.active == 1)
+    ).all()
+    occupied = [Segment(p.start_cm, p.end_cm) for p in active]
+    if not can_shrink(rail.length_cm, occupied, body.length_cm):
+        limit = max_occupied_end(occupied)
+        raise HTTPException(
+            409,
+            f"新杆长 {body.length_cm:g}cm 不得小于当前占位最远末端 {limit:g}cm，已拒绝修改",
+        )
+    rail.length_cm = body.length_cm
+    db.commit()
+    db.refresh(rail)
+    return rail
 
 
 @api_router.get("/orders", response_model=list[OrderOut])
